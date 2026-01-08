@@ -6,13 +6,17 @@ from .sidebar_dev import (
     sidebar,
     build_query_engine,
     get_milvus_collections_list,
-    DATA_DIR
+    DATA_DIR,
+    PROJECT_ROOT
 )
 from .ui_dev import clear_query_history
 from .summary_utils import read_summary
 
 def qa_demo():
-    logo_path = '/home/gt/Chatbot_Web_Demo/assets/logo.jpg'
+    # Support both Linux and Windows; fallback to placeholder if asset not found
+    logo_path = os.path.join(PROJECT_ROOT, 'assets', 'logo.jpg')
+    if not os.path.exists(logo_path):
+        logo_path = None  # Will skip image rendering if missing
 
     st.header("国泰智能问答")
     st.header("GuoTai AI Q&A:book:")
@@ -39,9 +43,8 @@ def qa_demo():
             st.session_state.messages = [{"role": "assistant", "content": "有什么能够帮到您？"}]
 
         for message in st.session_state.messages:
-            avatar = logo_path if message["role"] == "assistant" else '🧑‍💻'
-            with st.chat_message(message["role"],
-                                avatar=avatar):
+            avatar = logo_path if (message["role"] == "assistant" and logo_path) else ('🧑‍💻' if message["role"] == "user" else None)
+            with st.chat_message(message["role"], avatar=avatar):
                 st.write(message["content"])
 
         if prompt := st.chat_input():
@@ -50,7 +53,7 @@ def qa_demo():
                 st.write(prompt)
 
         if st.session_state.messages[-1]["role"] != "assistant":
-            with st.chat_message("assistant", avatar=logo_path):
+            with st.chat_message("assistant", avatar=('🤖' if logo_path else None)):
                 with st.spinner("Thinking ... "):
                     resp = st.session_state['query_engine'].query(prompt)
                     response, sources = resp.response, resp.source_nodes

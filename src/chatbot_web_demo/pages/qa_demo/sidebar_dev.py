@@ -8,7 +8,7 @@ from .summary_utils import summarize_docs, save_summary
 import os
 from io import StringIO
 import PyPDF2
-from pymilvus import MilvusClient
+from pymilvus import connections
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import (
     Document,
@@ -28,11 +28,29 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-ROOT_DIR = "/home/gt/Chatbot_Web_Demo"
-DATA_DIR = os.path.join(ROOT_DIR, "data")
+# Support both Linux and Windows; use current script location as base
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..'))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 INPUT_DIR = os.path.join(DATA_DIR, "pdf-inputs")
-# Milvus Lite: use local file URI, no external service or port required
-MILVUS_URI = os.path.join(DATA_DIR, "milvus_lite.db")
+# Milvus Lite: local file mode (no Docker, no server port)
+MILVUS_DB_PATH = os.path.join(DATA_DIR, "milvus.db")
+
+# Ensure data directories exist
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(INPUT_DIR, exist_ok=True)
+
+# Initialize Milvus Lite connection (once per session)
+@st.cache_resource(show_spinner=False)
+def init_milvus_connection():
+    """Connect to Milvus Lite (local file mode)."""
+    connections.connect(
+        alias="default",
+        uri=MILVUS_DB_PATH,  # Local file: milvus.db
+    )
+    return True
+
+init_milvus_connection()
 
 
 def clear_dirs():
@@ -46,14 +64,50 @@ def clear_dirs():
 
 
 @st.cache_resource(show_spinner=False)
-def get_milvus_client():
-    # Milvus Lite in-process; no service/port needed
-    return MilvusClient(uri=MILVUS_URI, db_name="default")
+def get_embed_model(embed_path):
+    logging.info(f"Loading {embed_path}")
+    return HuggingFaceEmbedding(model_name=embed_path, device="cpu")
+
+
+@st.cache_resource(show_spinner=False)
+def get_reranker():
+    return FlagEmbeddingReranker(model="BAAI/bge-reranker-large", top_n=5)
+
+
+@st.cache_resource(show_spinner=False)
+def get_sparse_fn():
+    return ExampleEmbeddingFunction()
+
+
+@st.cache_resource(show_spinner=False)
+def get_models():
+    llm = Ollama(model="qwen:14b", request_timeout=60.0)
+    embed_model_path = os.path.join(PROJECT_ROOT, "model", "bge-m3")
+    if not os.path.exists(embed_model_path):
+        embed_model_path = "BAAI/bge-m3"  # fallback to HF if local not found
+    embed_model = get_embed_model(embed_path=embed_model_path)
+    reranker = get_reranker()
+    return llm, embed_model, reranker
+
+
+def load_model():
+    llm, embed_model, reranker = get_models()
+    Settings.llm = llm
+    Settings.embed_model = embed_model
+    st.session_state["llm"] = llm
+    st.session_state["embed_model"] = embed_model
+    st.session_state["reranker"] = reranker
 
 
 def get_milvus_collections_list():
-    milvus_client = get_milvus_client()
-    st.session_state["milvus_collections"] = sorted(milvus_client.list_collections())
+    """List all collections in Milvus Lite."""
+    from pymilvus import list_collections
+    try:
+        colls = list_collections()
+        st.session_state["milvus_collections"] = sorted(colls)
+    except Exception as e:
+        st.session_state["milvus_collections"] = []
+        logging.warning(f"Failed to list collections: {e}")
 
 
 def reset_engine():
@@ -96,7 +150,10 @@ def get_sparse_fn():
 @st.cache_resource(show_spinner=False)
 def get_models():
     llm = Ollama(model="qwen:14b", request_timeout=60.0)
-    embed_model = get_embed_model(embed_path="/home/gt/Chatbot_Web_Demo/model/bge-m3")
+    embed_model_path = os.path.join(PROJECT_ROOT, "model", "bge-m3")
+    if not os.path.exists(embed_model_path):
+        embed_model_path = "BAAI/bge-m3"  # fallback to HF if local not found
+    embed_model = get_embed_model(embed_path=embed_model_path)
     reranker = get_reranker()
     return llm, embed_model, reranker
 
@@ -194,8 +251,9 @@ def create_vector_index(documents):
         system_prompt=EXPERT_Q_AND_A_SYSTEM,
     )
 
+    # Milvus Lite: local file mode
     vector_store = MilvusVectorStore(
-        uri=MILVUS_URI,
+        uri=MILVUS_DB_PATH,
         collection_name=f"doc_{collection_name}",
         dim=1024,
         overwrite=True,
@@ -210,13 +268,13 @@ def create_vector_index(documents):
         service_context=service_context,
         storage_context=storage_context,
     )
-    # st.write(documents)
     return index
 
 
 def build_query_engine_from_db(collection_name):
+    # Milvus Lite: load from local file
     vector_store = MilvusVectorStore(
-        uri=MILVUS_URI,
+        uri=MILVUS_DB_PATH,
         collection_name=collection_name,
         dim=1024,
         overwrite=False,

@@ -9,7 +9,7 @@ numpy==2.0.0
 openai==1.35.12
 pandas==2.2.2
 Pillow==10.4.0
-pymilvus==2.4.3
+pymilvus>=2.4.0
 PyPDF2==3.0.1
 ragas==0.1.9
 streamlit==1.36.0
