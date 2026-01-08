@@ -31,6 +31,8 @@ logging.basicConfig(level=logging.INFO)
 ROOT_DIR = "/home/gt/Chatbot_Web_Demo"
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 INPUT_DIR = os.path.join(DATA_DIR, "pdf-inputs")
+# Milvus Lite: use local file URI, no external service or port required
+MILVUS_URI = os.path.join(DATA_DIR, "milvus_lite.db")
 
 
 def clear_dirs():
@@ -43,11 +45,14 @@ def clear_dirs():
             os.remove(os.path.join(INPUT_DIR, file))
 
 
+@st.cache_resource(show_spinner=False)
+def get_milvus_client():
+    # Milvus Lite in-process; no service/port needed
+    return MilvusClient(uri=MILVUS_URI, db_name="default")
+
+
 def get_milvus_collections_list():
-    # Connect to Milvus server
-    milvus_client = MilvusClient(
-        uri="http://localhost:19530/", db_name="default", token="root:Milvus"
-    )
+    milvus_client = get_milvus_client()
     st.session_state["milvus_collections"] = sorted(milvus_client.list_collections())
 
 
@@ -72,22 +77,37 @@ if "selected_doc" not in st.session_state:
 if "uploader_key" not in st.session_state:
     st.session_state["uploader_key"] = 1
 
+@st.cache_resource(show_spinner=False)
 def get_embed_model(embed_path):
     logging.info(f"Loading {embed_path}")
-    embed_model = HuggingFaceEmbedding(model_name=embed_path, device="cuda:1")
-    return embed_model
+    return HuggingFaceEmbedding(model_name=embed_path, device="cpu")
+
+
+@st.cache_resource(show_spinner=False)
+def get_reranker():
+    return FlagEmbeddingReranker(model="BAAI/bge-reranker-large", top_n=5)
+
+
+@st.cache_resource(show_spinner=False)
+def get_sparse_fn():
+    return ExampleEmbeddingFunction()
+
+
+@st.cache_resource(show_spinner=False)
+def get_models():
+    llm = Ollama(model="qwen:14b", request_timeout=60.0)
+    embed_model = get_embed_model(embed_path="/home/gt/Chatbot_Web_Demo/model/bge-m3")
+    reranker = get_reranker()
+    return llm, embed_model, reranker
 
 
 def load_model():
-    llm = Ollama(model="qwen:14b", request_timeout=60.0)
-    embed_model = get_embed_model(embed_path="/home/gt/Chatbot_Web_Demo/model/bge-m3")
+    llm, embed_model, reranker = get_models()
     Settings.llm = llm
     Settings.embed_model = embed_model
     st.session_state["llm"] = llm
     st.session_state["embed_model"] = embed_model
-    st.session_state["reranker"] = FlagEmbeddingReranker(
-        model="BAAI/bge-reranker-large", top_n=5
-    )
+    st.session_state["reranker"] = reranker
 
 
 # @st.cache_data
@@ -175,13 +195,12 @@ def create_vector_index(documents):
     )
 
     vector_store = MilvusVectorStore(
-        uri="http://localhost:19530/",
-        token="root:Milvus",
+        uri=MILVUS_URI,
         collection_name=f"doc_{collection_name}",
         dim=1024,
         overwrite=True,
         enable_sparse=True,
-        sparse_embedding_function=ExampleEmbeddingFunction(),
+        sparse_embedding_function=get_sparse_fn(),
         hybrid_ranker="RRFRanker",
         hybrid_ranker_params={"k": 60},
     )
@@ -197,13 +216,12 @@ def create_vector_index(documents):
 
 def build_query_engine_from_db(collection_name):
     vector_store = MilvusVectorStore(
-        uri="http://localhost:19530/",
-        token="root:Milvus",
+        uri=MILVUS_URI,
         collection_name=collection_name,
         dim=1024,
         overwrite=False,
         enable_sparse=True,
-        sparse_embedding_function=ExampleEmbeddingFunction(),
+        sparse_embedding_function=get_sparse_fn(),
         hybrid_ranker="RRFRanker",
         hybrid_ranker_params={"k": 60},
     )

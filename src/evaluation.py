@@ -72,14 +72,15 @@ if __name__ == '__main__':
         context_recall,
     ]
 
+    milvus_lite_path = os.path.join(data_root_path, "milvus_lite.db")
+
     for i in tqdm(range(23), desc='Evaluating'):
         pdf_id = (i + pdf_file_start_id)
         document_path = os.path.join(pdf_root_path, str(pdf_id) + '.pdf')
         data_path = os.path.join(data_root_path, str(pdf_id))
 
         vector_store = MilvusVectorStore(
-            uri="http://localhost:19530/",
-            token="root:Milvus",
+            uri=milvus_lite_path,
             collection_name='doc' + str(pdf_id) + 'ImgConv',
             dim=1024,
             overwrite=True,

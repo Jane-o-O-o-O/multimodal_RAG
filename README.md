@@ -16,14 +16,11 @@ First, install all the necessary Python dependencies using the following command
 pip install -r requirements.txt
 ```
 
-### 2. Start Milvus
+### 2. Milvus Lite（单容器/本地文件模式）
 
-Next, start Milvus by navigating to the dependencies directory and running Docker Compose:
+Milvus Lite 以本地文件形式运行，无需启动服务或开放 19530 端口。示例 URI：`file:./data/milvus_lite.db`。
 
-```bashk˚v
-cd dependencies/milvus
-docker-compose up -d
-```
+> 如果需要传统 Milvus 服务，可以参考 `dependencies/milvus`，但单容器模式建议使用 Lite。
 
 ### 3. Start Nebula Graph
 
@@ -35,7 +32,9 @@ bash install.sh
 ```
 
 ### 4. Run the Code
-> TODO
+- 顶层依赖安装：`pip install -r requirements.txt`
+- Streamlit Demo：`pip install -r src/chatbot_web_demo/requirements.txt`，然后 `streamlit run src/chatbot_web_demo/streamlit_app.py`
+- 评估脚本：`python src/evaluation.py`（默认使用本地 Milvus Lite 文件）
 
 
 ## Acknowledgements
