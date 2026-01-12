@@ -6,7 +6,10 @@ from PIL import Image
 from transformers import AutoModel, AutoTokenizer
 from typing import Optional
 
-CPM_MODEL_PATH = "/home/gt/Chatbot_Web_Demo/model/MiniCPM-Llama3-V-2_5"
+# Use relative path from project root
+
+)
+CPM_MODEL_PATH = os.path.j5")lama3-V-2_PM-L", "MiniCodelT_ROOT, "moin(PROJEC', '..')'..', '....',  'SCRIPT_DIR,path.join(path(os.abs = os.path.T_ROOTPROJECh(__file__)).path.abspatrname(osos.path.di = PT_DIRSCRI
 
 
 class CPMConvertorFactory:

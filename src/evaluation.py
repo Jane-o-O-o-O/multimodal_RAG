@@ -1,10 +1,10 @@
 import sys
 import os
 
-root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_path)
 
-from mmRAG.utils.data_preprocessing import (
+from utils.data_preprocessing import (
     load_dataset,
     parse_pdf,
     convert_to_documents,
@@ -21,6 +21,7 @@ from llama_index.postprocessor.flag_embedding_reranker import (
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.milvus import MilvusVectorStore
+from llama_index.vector_stores.milvus.utils import BaseSparseEmbeddingFunction
 from ragas.integrations.llama_index import evaluate
 from ragas.metrics import (
     answer_similarity,
@@ -29,6 +30,38 @@ from ragas.metrics import (
     context_recall,
 )
 from tqdm import tqdm
+from FlagEmbedding import BGEM3FlagModel
+from typing import List
+
+
+# 稀疏嵌入函数（用于混合检索）
+class ExampleEmbeddingFunction(BaseSparseEmbeddingFunction):
+    def __init__(self):
+        self.model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+
+    def encode_queries(self, queries: List[str]):
+        outputs = self.model.encode(
+            queries,
+            return_dense=False,
+            return_sparse=True,
+            return_colbert_vecs=False,
+        )["lexical_weights"]
+        return [self._to_standard_dict(output) for output in outputs]
+
+    def encode_documents(self, documents: List[str]):
+        outputs = self.model.encode(
+            documents,
+            return_dense=False,
+            return_sparse=True,
+            return_colbert_vecs=False,
+        )["lexical_weights"]
+        return [self._to_standard_dict(output) for output in outputs]
+
+    def _to_standard_dict(self, raw_output):
+        result = {}
+        for k in raw_output:
+            result[int(k)] = raw_output[k]
+        return result
 
 
 # def ragas_evaluation(
@@ -52,13 +85,21 @@ def beir_evaluation():
 
 
 if __name__ == '__main__':
-    res_path = '/home/project/data/jc/mmRAG/mmRAG/data/pls_convertor'
-    pdf_root_path = '/home/project/data/jc/mmRAG/evaluation'
+    # 使用相对路径，基于项目根目录
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    res_path = os.path.join(project_root, 'data', 'results')
+    pdf_root_path = os.path.join(project_root, 'data', 'evaluation')
     data_root_path = os.path.join(pdf_root_path, 'data')
     pdf_file_start_id = 3900889
 
+    # 确保结果目录存在
+    os.makedirs(res_path, exist_ok=True)
+    os.makedirs(pdf_root_path, exist_ok=True)
+
     llm = Ollama(model="qwen2", request_timeout=60.0)
-    embed_path = "/home/project/data/jc/mmRAG/model/bge-m3"
+    # 模型路径改为相对路径，或者使用HuggingFace模型名称
+    embed_path = os.path.join(project_root, 'models', 'bge-m3')  # 本地模型
+    # 或者直接使用 HuggingFace 模型: embed_path = "BAAI/bge-m3"
     embed_model = HuggingFaceEmbedding(embed_path)
     rerank = FlagEmbeddingReranker(model="BAAI/bge-reranker-large", top_n=5)
 
@@ -75,6 +116,9 @@ if __name__ == '__main__':
     # Milvus Lite: local file mode (no Docker, no server port)
     # This creates/uses a local SQLite-backed Milvus Lite instance at the path
     milvus_db_path = os.path.join(data_root_path, "milvus.db")
+    
+    # 初始化稀疏嵌入函数
+    sparse_fn = ExampleEmbeddingFunction()
 
     for i in tqdm(range(23), desc='Evaluating'):
         pdf_id = (i + pdf_file_start_id)
@@ -87,6 +131,7 @@ if __name__ == '__main__':
             dim=1024,
             overwrite=True,
             enable_sparse=True,
+            sparse_embedding_function=sparse_fn,
             hybrid_ranker="RRFRanker",
             hybrid_ranker_params={"k": 60},
         )

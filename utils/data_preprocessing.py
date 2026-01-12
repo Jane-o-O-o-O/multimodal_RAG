@@ -1,5 +1,6 @@
-from ragas.testset.generator import TestDataset
-from ragas.testset.evolutions import DataRow
+# ragas 0.4.x版本API已变化，testset相关功能已移除
+# from ragas.testset.generator import TestDataset
+# from ragas.testset.evolutions import DataRow
 from unstructured.partition.pdf import partition_pdf
 from unstructured.chunking.basic import chunk_elements
 from llama_index.core import Document

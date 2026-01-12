@@ -18,12 +18,15 @@ def detect_image(image_path, output_file_name):
 
     image_path = image_path
     output_file_name = output_file_name
-    config_file = "/home/gt/Chatbot_Web_Demo/src/pages/detect_demo/table_detection/icdar19_configs/cascade/cascade_dit_base.yaml"
-    opts = ["MODEL.WEIGHTS", "/home/gt/Chatbot_Web_Demo/src/pages/detect_demo/table_detection/icdar19_modern/model.pth"]
+    # 使用相对路径
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_file = os.path.join(current_dir, "icdar19_configs", "cascade", "cascade_dit_base.yaml")
+    model_path = os.path.join(current_dir, "icdar19_modern", "model.pth")
+    opts = ["MODEL.WEIGHTS", model_path]
 
     cfg = get_cfg()
     add_vit_config(cfg)
-    cfg.MODEL.WEIGHTS = "/home/gt/Chatbot_Web_Demo/src/pages/detect_demo/table_detection/icdar19_modern/model.pth"
+    cfg.MODEL.WEIGHTS = model_path
     cfg.merge_from_file(config_file)
     cfg.merge_from_list(opts)
 

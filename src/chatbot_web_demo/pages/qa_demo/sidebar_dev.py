@@ -15,7 +15,6 @@ from llama_index.core import (
     VectorStoreIndex,
     SimpleDirectoryReader,
     StorageContext,
-    ServiceContext,
     Settings,
 )
 from llama_index.postprocessor.flag_embedding_reranker import (
@@ -245,11 +244,8 @@ def parse_data():
 
 def create_vector_index(documents):
     collection_name = st.session_state["uploaded_file_name"].split(".")[0]
-    service_context = ServiceContext.from_defaults(
-        llm=st.session_state["llm"],
-        embed_model=st.session_state["embed_model"],
-        system_prompt=EXPERT_Q_AND_A_SYSTEM,
-    )
+    # 使用 Settings 而不是 ServiceContext (已弃用)
+    # Settings 已经在 load_model() 中设置
 
     # Milvus Lite: local file mode
     vector_store = MilvusVectorStore(
@@ -265,8 +261,8 @@ def create_vector_index(documents):
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
     index = VectorStoreIndex.from_documents(
         documents,
-        service_context=service_context,
         storage_context=storage_context,
+        show_progress=True,
     )
     return index
 
@@ -338,10 +334,9 @@ def process_data():
 
 def sidebar():
     with st.sidebar:
-        st.image(
-            "/home/gt/Chatbot_Web_Demo/assets/logo.jpg",
-            use_column_width=True,
-        )
+        logo_path = os.path.join(PROJECT_ROOT, "assets", "logo.jpg")
+        if os.path.exists(logo_path):
+            st.image(logo_path, use_column_width=True)
         st.markdown(
             "## 指引\n"
             "1. 上传您的文档或选择知识库中已有的文档📄\n"

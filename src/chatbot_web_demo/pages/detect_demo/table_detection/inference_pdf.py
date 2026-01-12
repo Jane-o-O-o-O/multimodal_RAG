@@ -56,8 +56,11 @@ def detect_pdf(pdf_path, output_folder):
 
     pdf_path = pdf_path
     output_folder = output_folder
-    config_file = "/home/gt/Chatbot_Web_Demo/src/pages/detect_demo/table_detection/icdar19_configs/cascade/cascade_dit_base.yaml"
-    opts = ["MODEL.WEIGHTS", "/home/gt/Chatbot_Web_Demo/src/pages/detect_demo/table_detection/icdar19_modern/model.pth"]
+    # 使用相对路径
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_file = os.path.join(current_dir, "icdar19_configs", "cascade", "cascade_dit_base.yaml")
+    model_path = os.path.join(current_dir, "icdar19_modern", "model.pth")
+    opts = ["MODEL.WEIGHTS", model_path]
 
     # Create output folder if it doesn't exist
     if not os.path.exists(output_folder):

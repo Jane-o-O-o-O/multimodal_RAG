@@ -10,8 +10,15 @@ if "uploaded_detect_file" not in st.session_state.keys():
 if "output_file_or_folder" not in st.session_state.keys():
     st.session_state["output_file_or_folder"] = []
 
-DATA_DIR = "/home/gt/Chatbot_Web_Demo/detect_data"
-INPUT_DIR = os.path.join(DATA_DIR, "pdf-inputs")
+# Use relative path from project root
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__f))
+
+
+INPUT_DIR = os.pa)
+
+# Ensure directories exist
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(INPUT_DIR, exist_oue)k=Trputs"-inDIR, "pdfA_h.join(DATtdata") "detect_"data",T_ROOT, OJECath.join(PR= os.pR DATA_DI '..'))..',, '..'T_DIR, 'CRIPh.join(Sath(os.pat.absppath= os.T_ROOT PROJECile__
 
 
 def clear_dirs():
@@ -74,7 +81,9 @@ def upload_data():
 def detect_demo():
     st.header("识别工具")
     with st.sidebar:
-        st.image("/home/gt/Chatbot_Web_Demo/assets/logo.jpg", use_column_width=True)
+        logo_path = os.path.join(PROJECT_ROOT, "assets", "logo.jpg")
+        if os.path.exists(logo_path):
+            st.image(logo_path, use_column_width=True)
 
     upload_data()
     visulize_img()

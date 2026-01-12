@@ -5,7 +5,7 @@ llama-index-embeddings-huggingface
 llama-index-postprocessor-flag-embedding-reranker
 llama-index-llms-ollama
 pdf2image
-numpy==2.0.0
+numpy<2.0.0,>=1.24.0
 openai==1.35.12
 pandas==2.2.2
 Pillow==10.4.0
