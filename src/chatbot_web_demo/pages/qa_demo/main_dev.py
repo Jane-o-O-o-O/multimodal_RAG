@@ -31,8 +31,8 @@ def qa_demo():
     build_query_engine()
 
 
-    if st.session_state['is_ready']:
-        current_doc_id = re.search(r'\d+', st.session_state["selected_doc"]).group()
+    if st.session_state.get("is_ready") and st.session_state.get("selected_doc"):
+        current_doc_id = re.search(r"\d+", st.session_state["selected_doc"]).group()
         current_doc = f"{current_doc_id}.pdf"
         current_doc_path = os.path.join(DATA_DIR, current_doc_id)
         summary = read_summary(current_doc_path)

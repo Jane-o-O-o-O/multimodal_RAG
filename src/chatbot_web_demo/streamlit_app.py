@@ -2,21 +2,19 @@ import streamlit as st
 
 from pages.qa_demo.main_dev import qa_demo
 
-# Lazy import for modules with heavy dependencies
+# 可选页面：按需懒加载，缺失时不报错
 def get_detect_demo():
     try:
         from pages.detect_demo.main_dev import detect_demo
         return detect_demo
-    except ModuleNotFoundError as e:
-        st.error(f"detect_demo requires: {e}. Please install detectron2.")
+    except Exception:
         return None
 
 def get_doc_parse_demo():
     try:
         from pages.doc_parse_demo.main_dev import doc_parse_demo
         return doc_parse_demo
-    except ModuleNotFoundError as e:
-        st.error(f"doc_parse_demo requires: {e}")
+    except Exception:
         return None
 
 page_names_to_funcs = {

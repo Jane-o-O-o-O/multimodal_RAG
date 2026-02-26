@@ -1,56 +1,36 @@
 # multimodal_RAG
 
-## Introduction
-> TODO
+多模态 RAG：PDF 解析、图文混合检索（BGE-M3 + Milvus Lite）、本地 LLM 问答与 RAGAs 评估。
 
+---
 
-## Get Started
-
-Follow these steps to get started with this project:
-
-### 1. Install Dependencies
-
-First, install all the necessary Python dependencies using the following command:
+## 快速开始
 
 ```bash
+# 安装
 pip install -r requirements.txt
+pip install -r src/chatbot_web_demo/requirements.txt
+
+# Web 演示（项目根目录执行）
+streamlit run src/chatbot_web_demo/streamlit_app.py
+
+# 评估
+python src/evaluation.py
 ```
 
-### 2. Milvus Lite（单容器/本地文件模式）
+---
 
-Milvus Lite 以本地文件形式运行，无需启动服务或开放 19530 端口。示例 URI：`file:./data/milvus_lite.db`。
+## 配置
 
-> 如果需要传统 Milvus 服务，可以参考 `dependencies/milvus`，但单容器模式建议使用 Lite。
+所有路径与模型在项目根目录 **`config.py`** 中配置：
 
-### 3. Start Nebula Graph
+| 配置项 | 说明 | 默认 |
+|--------|------|------|
+| `MILVUS_DB_PATH` | Milvus Lite 库文件 | `data/milvus.db` |
+| `MODELS_DIR` | 本地模型根目录 | `models/` |
+| `get_embed_model_path()` | 嵌入模型（如 bge-m3） | 本地 `models/bge-m3` 或 HF |
+| `get_reranker_model_path()` | 重排模型 | 本地或 HF |
+| `OLLAMA_MODEL` | Ollama 模型名 | `qwen2` |
+| `CPM_MODEL_PATH` | 图表转表格（MiniCPM，可选） | `models/MiniCPM-V` |
 
-Finally, start Nebula Graph by navigating to the corresponding directory and running the installation script:
-
-```bash
-cd dependencies/nebulaGraph
-bash install.sh
-```
-
-### 4. Run the Code
-- 顶层依赖安装：`pip install -r requirements.txt`
-- Streamlit Demo：`pip install -r src/chatbot_web_demo/requirements.txt`，然后 `streamlit run src/chatbot_web_demo/streamlit_app.py`
-- 评估脚本：`python src/evaluation.py`（默认使用本地 Milvus Lite 文件）
-
-
-## Acknowledgements
-
-This work is built with reference to the code of the following projects:
-
-- [Milvus](https://github.com/milvus-io/milvus)
-- [Nebula Graph](https://github.com/vesoft-inc/nebula)
-- [RAGAs](https://github.com/explodinggradients/ragas)
-- [FlagEmbedding](https://github.com/FlagOpen/FlagEmbedding)
-- [LlamaIndex](https://github.com/run-llama/llama_index)
-- [MiniCPM](https://github.com/OpenBMB/MiniCPM-V)
-- [InternVL](https://github.com/OpenGVLab/InternVL)
-- [Unstructured](https://github.com/Unstructured-IO/unstructured)
-- [Ollama](https://github.com/ollama/ollama)
-- [BEIR](https://github.com/beir-cellar/beir)
-
-Thanks for their awesome work!
-
+修改模型或路径时只改 `config.py` 即可。可选依赖 Nebula Graph 见 `dependencies/nebulaGraph`。

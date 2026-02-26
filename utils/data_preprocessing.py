@@ -1,6 +1,11 @@
-# ragas 0.4.x版本API已变化，testset相关功能已移除
-# from ragas.testset.generator import TestDataset
-# from ragas.testset.evolutions import DataRow
+# ragas 0.1.x 评估用：从 CSV 加载 testset
+try:
+    from ragas.testset.generator import TestDataset
+    from ragas.testset.evolutions import DataRow
+except ImportError:
+    TestDataset = None
+    DataRow = None
+
 from unstructured.partition.pdf import partition_pdf
 from unstructured.chunking.basic import chunk_elements
 from llama_index.core import Document
@@ -55,25 +60,41 @@ def convert_to_documents(documents,
 
     return documents
 
-def load_dataset(dataset_path: str) -> TestDataset:
+def load_dataset(dataset_path: str):
     """
-    Load the dataset from a CSV file.
+    从 CSV 加载 RAGAs 评估用数据集。
+    CSV 需包含列: question, contexts, ground_truth, evolution_type, metadata。
+    返回 ragas evaluate() 所需的 dict 格式；若 ragas 未安装或 API 不可用则返回 None。
     """
+    if TestDataset is None or DataRow is None:
+        raise ImportError(
+            "load_dataset 需要 ragas 0.1.x 的 TestDataset/DataRow。"
+            "请安装: pip install ragas==0.1.9"
+        )
+    assert dataset_path.endswith(".csv"), "Dataset file must be a CSV file."
+    assert os.path.exists(dataset_path), f"Dataset file not found: {dataset_path}"
 
-    assert dataset_path.endswith('.csv'), 'Dataset file must be a CSV file.'
-
-    df = pd.read_csv(dataset_path,
-                     quotechar='"',
-                     skipinitialspace=True,)
+    df = pd.read_csv(dataset_path, quotechar='"', skipinitialspace=True)
+    required = ["question", "contexts", "ground_truth"]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"CSV 缺少必要列: {col}. 当前列: {list(df.columns)}")
 
     data_rows = []
     for _, row in df.iterrows():
+        contexts = row["contexts"]
+        if isinstance(contexts, str):
+            contexts = eval(contexts)
+        metadata = row.get("metadata", "{}")
+        if isinstance(metadata, str):
+            metadata = eval(metadata) if metadata.strip() else {}
+        evolution_type = row.get("evolution_type", "single_turn")
         data_row = DataRow(
-            question=row['question'],
-            contexts=eval(row['contexts']),
-            ground_truth=row['ground_truth'],
-            evolution_type=row['evolution_type'],
-            metadata=eval(row['metadata'])
+            question=row["question"],
+            contexts=contexts,
+            ground_truth=row["ground_truth"],
+            evolution_type=evolution_type,
+            metadata=metadata,
         )
         data_rows.append(data_row)
 
@@ -87,17 +108,17 @@ def load_img_captions(raw_docs,
     """
 
     img_caption = pd.read_csv(csv_path)
-    pdf_id = csv_path.split("/")[-2]
+    pdf_id = os.path.normpath(csv_path).split(os.sep)[-2]
     img_ids = []
     documents = []
 
     for full_img_path in img_caption["image_path"]:
-        img_id = full_img_path.split("/")[-1]
+        img_id = os.path.basename(os.path.normpath(str(full_img_path)))
         img_ids.append(img_id)
 
     for doc in raw_docs:
         if doc.to_dict()["type"] in ["Table", "Image"]:
-            doc_img_id = doc.to_dict()["metadata"]["image_path"].split("/")[-1]
+            doc_img_id = os.path.basename(os.path.normpath(doc.to_dict()["metadata"]["image_path"]))
             if doc_img_id in img_ids:
                 caption = img_caption.loc[img_caption["image_path"] == f"./images/{pdf_id}/{doc_img_id}", "caption"].values[0]
                 converted_doc = doc

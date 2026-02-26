@@ -1,11 +1,24 @@
 from FlagEmbedding import BGEM3FlagModel
-from typing import List
+from typing import List, Optional
 from llama_index.vector_stores.milvus.utils import BaseSparseEmbeddingFunction
 
 
 class ExampleEmbeddingFunction(BaseSparseEmbeddingFunction):
-    def __init__(self):
-        self.model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+    """BGE-M3 稀疏嵌入，支持传入本地模型路径。"""
+
+    def __init__(self, model_path: Optional[str] = None):
+        if model_path is None:
+            try:
+                import sys
+                import os
+                _root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+                if _root not in sys.path:
+                    sys.path.insert(0, _root)
+                import config
+                model_path = config.get_embed_model_path()
+            except Exception:
+                model_path = "BAAI/bge-m3"
+        self.model = BGEM3FlagModel(model_path, use_fp16=False)
 
     def encode_queries(self, queries: List[str]):
         outputs = self.model.encode(

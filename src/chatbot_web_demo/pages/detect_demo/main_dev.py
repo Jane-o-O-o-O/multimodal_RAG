@@ -1,5 +1,13 @@
 import streamlit as st
 import os
+import sys
+
+# 保证可导入项目 config（运行 streamlit 时 cwd 通常为项目根）
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", "..", ".."))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+import config
 
 from .table_detection.inference import detect_image
 from .table_detection.inference_pdf import detect_pdf
@@ -10,15 +18,11 @@ if "uploaded_detect_file" not in st.session_state.keys():
 if "output_file_or_folder" not in st.session_state.keys():
     st.session_state["output_file_or_folder"] = []
 
-# Use relative path from project root
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__f))
+DATA_DIR = config.DATA_DIR
+INPUT_DIR = config.INPUT_DIR_DETECT
+PROJECT_ROOT = config.PROJECT_ROOT
 
-
-INPUT_DIR = os.pa)
-
-# Ensure directories exist
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(INPUT_DIR, exist_oue)k=Trputs"-inDIR, "pdfA_h.join(DATtdata") "detect_"data",T_ROOT, OJECath.join(PR= os.pR DATA_DI '..'))..',, '..'T_DIR, 'CRIPh.join(Sath(os.pat.absppath= os.T_ROOT PROJECile__
+config.ensure_dirs()
 
 
 def clear_dirs():
@@ -53,17 +57,16 @@ def process_data():
 
 
 def visulize_img():
-    if "output_file_or_folder" in st.session_state.keys():
-        output_file_or_folder = st.session_state["output_file_or_folder"]
-    if output_file_or_folder:
-        #st.write(f"{output_file_or_folder}")
-        if os.path.isdir(output_file_or_folder):
-            all_files = os.listdir(output_file_or_folder)
-            all_files_path = [os.path.join(output_file_or_folder, file) for file in all_files]
-            all_files_captions = [f"{file}识别结果" for file in all_files]
-            st.image(all_files_path, width=200, caption=all_files_captions)
-        else:
-            st.image(output_file_or_folder, width=200, caption=f"{output_file_or_folder}识别结果")
+    output_file_or_folder = st.session_state.get("output_file_or_folder")
+    if not output_file_or_folder:
+        return
+    if os.path.isdir(output_file_or_folder):
+        all_files = os.listdir(output_file_or_folder)
+        all_files_path = [os.path.join(output_file_or_folder, f) for f in all_files]
+        all_files_captions = [f"{f} 识别结果" for f in all_files]
+        st.image(all_files_path, width=200, caption=all_files_captions)
+    else:
+        st.image(output_file_or_folder, width=200, caption="识别结果")
 
 
 def upload_data():

@@ -1,23 +1,18 @@
 import sys
 import os
 
-root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(root_path)
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, root_path)
 
+import config
 from utils.data_preprocessing import (
     load_dataset,
     parse_pdf,
     convert_to_documents,
-    load_img_captions
+    load_img_captions,
 )
-from llama_index.core import (
-    Settings,
-    VectorStoreIndex,
-    StorageContext
-)
-from llama_index.postprocessor.flag_embedding_reranker import (
-    FlagEmbeddingReranker,
-)
+from llama_index.core import Settings, VectorStoreIndex, StorageContext
+from llama_index.postprocessor.flag_embedding_reranker import FlagEmbeddingReranker
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.milvus import MilvusVectorStore
@@ -34,10 +29,11 @@ from FlagEmbedding import BGEM3FlagModel
 from typing import List
 
 
-# 稀疏嵌入函数（用于混合检索）
+# 稀疏嵌入函数（用于混合检索），使用 config 中的本地模型路径
 class ExampleEmbeddingFunction(BaseSparseEmbeddingFunction):
-    def __init__(self):
-        self.model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+    def __init__(self, model_path: str = None):
+        model_path = model_path or config.get_embed_model_path()
+        self.model = BGEM3FlagModel(model_path, use_fp16=False)
 
     def encode_queries(self, queries: List[str]):
         outputs = self.model.encode(
@@ -84,24 +80,22 @@ def beir_evaluation():
     pass
 
 
-if __name__ == '__main__':
-    # 使用相对路径，基于项目根目录
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    res_path = os.path.join(project_root, 'data', 'results')
-    pdf_root_path = os.path.join(project_root, 'data', 'evaluation')
-    data_root_path = os.path.join(pdf_root_path, 'data')
-    pdf_file_start_id = 3900889
+if __name__ == "__main__":
+    # 统一使用 config：本地 Milvus Lite + 本地模型路径
+    res_path = config.RESULTS_DIR
+    pdf_root_path = config.EVALUATION_DIR
+    data_root_path = config.EVALUATION_DATA_DIR
+    pdf_file_start_id = config.EVAL_PDF_START_ID
+    config.ensure_dirs()
 
-    # 确保结果目录存在
-    os.makedirs(res_path, exist_ok=True)
-    os.makedirs(pdf_root_path, exist_ok=True)
-
-    llm = Ollama(model="qwen2", request_timeout=60.0)
-    # 模型路径改为相对路径，或者使用HuggingFace模型名称
-    embed_path = os.path.join(project_root, 'models', 'bge-m3')  # 本地模型
-    # 或者直接使用 HuggingFace 模型: embed_path = "BAAI/bge-m3"
+    llm = Ollama(
+        model=config.OLLAMA_MODEL,
+        request_timeout=config.OLLAMA_REQUEST_TIMEOUT,
+    )
+    embed_path = config.get_embed_model_path()
+    reranker_path = config.get_reranker_model_path()
     embed_model = HuggingFaceEmbedding(embed_path)
-    rerank = FlagEmbeddingReranker(model="BAAI/bge-reranker-large", top_n=5)
+    rerank = FlagEmbeddingReranker(model=reranker_path, top_n=5)
 
     Settings.llm = llm
     Settings.embed_model = embed_model
@@ -113,14 +107,11 @@ if __name__ == '__main__':
         context_recall,
     ]
 
-    # Milvus Lite: local file mode (no Docker, no server port)
-    # This creates/uses a local SQLite-backed Milvus Lite instance at the path
-    milvus_db_path = os.path.join(data_root_path, "milvus.db")
-    
-    # 初始化稀疏嵌入函数
+    # Milvus Lite：本地文件，无需服务
+    milvus_db_path = config.MILVUS_DB_PATH
     sparse_fn = ExampleEmbeddingFunction()
 
-    for i in tqdm(range(23), desc='Evaluating'):
+    for i in tqdm(range(config.EVAL_NUM_DOCS), desc="Evaluating"):
         pdf_id = (i + pdf_file_start_id)
         document_path = os.path.join(pdf_root_path, str(pdf_id) + '.pdf')
         data_path = os.path.join(data_root_path, str(pdf_id))

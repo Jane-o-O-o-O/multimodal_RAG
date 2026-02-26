@@ -6,20 +6,12 @@ from .data_preprocessing import parse_pdf, convert_to_documents, convert_img_to_
 from .summary_utils import summarize_docs, save_summary
 
 import os
+import sys
 from io import StringIO
-import PyPDF2
 from pymilvus import connections
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core import (
-    Document,
-    VectorStoreIndex,
-    SimpleDirectoryReader,
-    StorageContext,
-    Settings,
-)
-from llama_index.postprocessor.flag_embedding_reranker import (
-    FlagEmbeddingReranker,
-)
+from llama_index.core import Document, VectorStoreIndex, StorageContext, Settings
+from llama_index.postprocessor.flag_embedding_reranker import FlagEmbeddingReranker
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.llms.ollama import Ollama
 
@@ -27,17 +19,17 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-# Support both Linux and Windows; use current script location as base
+# 使用项目统一 config（本地 Milvus Lite + 本地模型路径）
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..'))
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-INPUT_DIR = os.path.join(DATA_DIR, "pdf-inputs")
-# Milvus Lite: local file mode (no Docker, no server port)
-MILVUS_DB_PATH = os.path.join(DATA_DIR, "milvus.db")
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+import config
 
-# Ensure data directories exist
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(INPUT_DIR, exist_ok=True)
+DATA_DIR = config.DATA_DIR
+INPUT_DIR = config.INPUT_DIR_PDF
+MILVUS_DB_PATH = config.MILVUS_DB_PATH
+config.ensure_dirs()
 
 # Initialize Milvus Lite connection (once per session)
 @st.cache_resource(show_spinner=False)
@@ -70,21 +62,21 @@ def get_embed_model(embed_path):
 
 @st.cache_resource(show_spinner=False)
 def get_reranker():
-    return FlagEmbeddingReranker(model="BAAI/bge-reranker-large", top_n=5)
+    return FlagEmbeddingReranker(model=config.get_reranker_model_path(), top_n=5)
 
 
 @st.cache_resource(show_spinner=False)
 def get_sparse_fn():
-    return ExampleEmbeddingFunction()
+    return ExampleEmbeddingFunction(model_path=config.get_embed_model_path())
 
 
 @st.cache_resource(show_spinner=False)
 def get_models():
-    llm = Ollama(model="qwen:14b", request_timeout=60.0)
-    embed_model_path = os.path.join(PROJECT_ROOT, "model", "bge-m3")
-    if not os.path.exists(embed_model_path):
-        embed_model_path = "BAAI/bge-m3"  # fallback to HF if local not found
-    embed_model = get_embed_model(embed_path=embed_model_path)
+    llm = Ollama(
+        model=config.OLLAMA_MODEL,
+        request_timeout=config.OLLAMA_REQUEST_TIMEOUT,
+    )
+    embed_model = get_embed_model(embed_path=config.get_embed_model_path())
     reranker = get_reranker()
     return llm, embed_model, reranker
 
@@ -130,41 +122,6 @@ if "selected_doc" not in st.session_state:
 if "uploader_key" not in st.session_state:
     st.session_state["uploader_key"] = 1
 
-@st.cache_resource(show_spinner=False)
-def get_embed_model(embed_path):
-    logging.info(f"Loading {embed_path}")
-    return HuggingFaceEmbedding(model_name=embed_path, device="cpu")
-
-
-@st.cache_resource(show_spinner=False)
-def get_reranker():
-    return FlagEmbeddingReranker(model="BAAI/bge-reranker-large", top_n=5)
-
-
-@st.cache_resource(show_spinner=False)
-def get_sparse_fn():
-    return ExampleEmbeddingFunction()
-
-
-@st.cache_resource(show_spinner=False)
-def get_models():
-    llm = Ollama(model="qwen:14b", request_timeout=60.0)
-    embed_model_path = os.path.join(PROJECT_ROOT, "model", "bge-m3")
-    if not os.path.exists(embed_model_path):
-        embed_model_path = "BAAI/bge-m3"  # fallback to HF if local not found
-    embed_model = get_embed_model(embed_path=embed_model_path)
-    reranker = get_reranker()
-    return llm, embed_model, reranker
-
-
-def load_model():
-    llm, embed_model, reranker = get_models()
-    Settings.llm = llm
-    Settings.embed_model = embed_model
-    st.session_state["llm"] = llm
-    st.session_state["embed_model"] = embed_model
-    st.session_state["reranker"] = reranker
-
 
 # @st.cache_data
 def choose_docs():
@@ -176,11 +133,13 @@ def choose_docs():
     selected_doc = st.selectbox(
         "选择文档",
         pdf_doc_list,
-        #index=None,
-        placeholder="请选择文档",
+        placeholder="请选择文档" if pdf_doc_list else "暂无文档，请先上传",
     )
-    st.session_state["selected_doc"] = "doc_" + selected_doc.split(".")[0]
-    # st.write("您选择的文档是：", selected_doc)
+    if selected_doc:
+        st.session_state["selected_doc"] = "doc_" + selected_doc.split(".")[0]
+    elif not pdf_doc_list:
+        st.session_state["selected_doc"] = None
+        st.session_state["is_ready"] = False
 
 
 # @st.cache_data cannot be used opon st.file_uploader
@@ -290,7 +249,7 @@ def build_query_engine_from_db(collection_name):
 
 
 def build_query_engine_from_index(index):
-    rerank = FlagEmbeddingReranker(model="BAAI/bge-reranker-large", top_n=5)
+    rerank = FlagEmbeddingReranker(model=config.get_reranker_model_path(), top_n=5)
     query_engine = index.as_query_engine(
         similarity_top_k=10, node_postprocessors=[st.session_state["reranker"]]
     )
