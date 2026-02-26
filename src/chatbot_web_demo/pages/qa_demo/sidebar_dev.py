@@ -20,8 +20,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # 使用项目统一 config（本地 Milvus Lite + 本地模型路径）
+# sidebar_dev 在 src/chatbot_web_demo/pages/qa_demo/，需 4 层 .. 到项目根
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 import config

@@ -34,3 +34,13 @@ python src/evaluation.py
 | `CPM_MODEL_PATH` | 图表转表格（MiniCPM，可选） | `models/MiniCPM-V` |
 
 修改模型或路径时只改 `config.py` 即可。可选依赖 Nebula Graph 见 `dependencies/nebulaGraph`。
+
+---
+
+## 运行流程与已知问题
+
+**Web 流程**：项目根目录执行 `streamlit run src/chatbot_web_demo/streamlit_app.py` → 侧栏选/上传文档 → 选文档后问答。依赖：Ollama 已启动且拉取 `config.OLLAMA_MODEL`；嵌入/重排见上表（无本地则用 HF）。
+
+**评估流程**：项目根执行 `python src/evaluation.py`。会遍历 `config.EVAL_NUM_DOCS` 个 PDF（`data/evaluation/{id}.pdf`），每个需存在 `data/evaluation/data/{id}/testset.csv` 与 `img_captions.csv`；缺失的项会跳过并打日志。依赖：ragas 0.1.x（`pip install ragas==0.1.9`）。
+
+**已知限制**：① Web 上传多文件时仅最后一个 PDF 会被建索引（单次上传建议单文件）。② 未配置 MiniCPM 时，上传带图/表的 PDF 会报错，需在 `config.CPM_MODEL_PATH` 放模型或后续改逻辑跳过图像转换。

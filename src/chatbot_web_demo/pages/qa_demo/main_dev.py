@@ -1,5 +1,4 @@
 import os
-import re
 import streamlit as st
 
 from .sidebar_dev import (
@@ -32,7 +31,9 @@ def qa_demo():
 
 
     if st.session_state.get("is_ready") and st.session_state.get("selected_doc"):
-        current_doc_id = re.search(r"\d+", st.session_state["selected_doc"]).group()
+        # selected_doc 形如 "doc_文件名"，取前缀后的部分作为 doc_id（支持中文等任意文件名）
+        raw = st.session_state["selected_doc"]
+        current_doc_id = raw.replace("doc_", "", 1) if raw.startswith("doc_") else raw
         current_doc = f"{current_doc_id}.pdf"
         current_doc_path = os.path.join(DATA_DIR, current_doc_id)
         summary = read_summary(current_doc_path)

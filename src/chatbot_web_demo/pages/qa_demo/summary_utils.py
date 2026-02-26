@@ -24,10 +24,11 @@ def save_summary(summary: str, document_path: str) -> None:
 
 def read_summary(document_path: str) -> str:
     """
-    Read the summary from a file.
+    Read the summary from a file. If file does not exist, return a short placeholder.
     """
     summary_filepath = os.path.join(document_path, "summary.txt")
-    with open(summary_filepath, 'r', encoding='utf-8') as file:
-        summary = file.read()
-    return summary
+    if not os.path.exists(summary_filepath):
+        return "（暂无摘要）"
+    with open(summary_filepath, "r", encoding="utf-8") as file:
+        return file.read()
 

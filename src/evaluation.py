@@ -113,8 +113,19 @@ if __name__ == "__main__":
 
     for i in tqdm(range(config.EVAL_NUM_DOCS), desc="Evaluating"):
         pdf_id = (i + pdf_file_start_id)
-        document_path = os.path.join(pdf_root_path, str(pdf_id) + '.pdf')
+        document_path = os.path.join(pdf_root_path, str(pdf_id) + ".pdf")
         data_path = os.path.join(data_root_path, str(pdf_id))
+        testset_path = os.path.join(data_path, "testset.csv")
+
+        if not os.path.exists(document_path):
+            tqdm.write(f"跳过 {pdf_id}: PDF 不存在 {document_path}")
+            continue
+        if not os.path.exists(testset_path):
+            tqdm.write(f"跳过 {pdf_id}: 测试集不存在 {testset_path}")
+            continue
+        if not os.path.exists(os.path.join(data_path, "img_captions.csv")):
+            tqdm.write(f"跳过 {pdf_id}: 缺少 data/{pdf_id}/img_captions.csv")
+            continue
 
         vector_store = MilvusVectorStore(
             uri=milvus_db_path,

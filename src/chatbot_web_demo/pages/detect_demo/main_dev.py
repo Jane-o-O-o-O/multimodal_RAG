@@ -2,9 +2,9 @@ import streamlit as st
 import os
 import sys
 
-# 保证可导入项目 config（运行 streamlit 时 cwd 通常为项目根）
+# 保证可导入项目 config；detect_demo 在 pages/detect_demo/，需 4 层 .. 到项目根
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", "..", ".."))
+_PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", "..", "..", ".."))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 import config
